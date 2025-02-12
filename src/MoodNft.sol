@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {ERC721} from "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import {Base64} from "lib/openzeppelin-contracts/contracts/utils/Base64.sol";
+
 /**
  An example of nft data:
 
@@ -18,7 +19,10 @@ import {Base64} from "lib/openzeppelin-contracts/contracts/utils/Base64.sol";
 
  */
 
-contract MoodNft is ERC21 {
+contract MoodNft is ERC721 {
+    // error
+    error MoodNft_CantFlipMoodIfNotOwner();
+
     enum NFTState {
         HAPPY,
         SAD
@@ -27,6 +31,9 @@ contract MoodNft is ERC21 {
     string private s_happySvg;
     string private s_sadSvg;
     mapping(uint256 => NFTState) private s_tokenIdToState;
+
+    // event
+    event CreatNFT(uint256 indexed tokenId);
 
     constructor(
         string memory happyImageUri,
@@ -39,11 +46,26 @@ contract MoodNft is ERC21 {
 
     function mintNft() public {
         _safeMint(msg.sender, s_tokenCounter);
-        s_tokenIdToState[s_tokenCounter] = NFTState.HAPPY; // default
+        s_tokenIdToState[s_tokenCounter] = NFTState.HAPPY; // default HAPPY
+        emit CreatNFT(s_tokenCounter);
         s_tokenCounter += 1;
     }
 
-    function _baseURI() internal view override returns (string) {
+    function flipMood(uint256 tokenId) public {
+        if (
+            getApproved(tokenId) != msg.sender && ownerOf(tokenId) != msg.sender
+        ) {
+            revert MoodNft_CantFlipMoodIfNotOwner();
+        }
+
+        if (s_tokenIdToState[tokenId] == NFTState.HAPPY) {
+            s_tokenIdToState[tokenId] = NFTState.SAD;
+        } else {
+            s_tokenIdToState[tokenId] = NFTState.HAPPY;
+        }
+    }
+
+    function _baseURI() internal pure override returns (string memory) {
         return "data:application/json;base64,";
     }
 
@@ -76,14 +98,18 @@ contract MoodNft is ERC21 {
     }
 
     function getHappySVG() public view returns (string memory) {
-        return s_happySvgUri;
+        return s_happySvg;
     }
 
     function getSadSVG() public view returns (string memory) {
-        return s_sadSvgUri;
+        return s_sadSvg;
     }
 
     function getTokenCounter() public view returns (uint256) {
         return s_tokenCounter;
+    }
+
+    function getStateOfTokenId(uint256 tokenId) public view returns (NFTState) {
+        return s_tokenIdToState[tokenId];
     }
 }
